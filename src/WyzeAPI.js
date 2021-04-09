@@ -228,6 +228,41 @@ module.exports = class WyzeAPI {
 
     return result.data;
   }
+  
+  async setPropertyList(deviceMac, deviceModel, properties) {
+    const plist = [];
+    for (const [key, value] of Object.entries(properties)) {
+      plist.push({
+	pid: key,
+	pvalue: String(value)
+	});
+    }
+    const innerList = [
+      {
+        mac: deviceMac,
+        plist: plist,
+      }
+    ];
+    const actionParams = {
+      list: innerList,
+    };
+    const actionList = [
+      {
+        instance_id: deviceMac,
+        action_params: actionParams,
+        provider_key: deviceModel,
+        action_key: "set_mesh_property",
+      }
+    ];
+    const data = {
+      action_list: actionList,
+    };
+    this.log.debug(`run_action_list Data Body: ${JSON.stringify(data)}`);
+
+    const result = await this.request('app/v2/auto/run_action_list', data);
+
+    return result.data;
+  }
 
   async runActionList(deviceMac, deviceModel, propertyId, propertyValue) {
     // Wyze Color Bulbs use a new run_action_list endpoint instead of set_property

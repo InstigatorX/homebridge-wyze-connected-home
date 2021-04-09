@@ -10,6 +10,8 @@ module.exports = class WyzeAccessory {
 
     this.plugin = plugin;
     this.homeKitAccessory = homeKitAccessory;
+    this.bufferedProperties = [];
+    this.bufferCount = 0;
   }
   
   get display_name() {
@@ -38,6 +40,7 @@ module.exports = class WyzeAccessory {
       mac: device.mac,
       product_type: device.product_type,
       product_model: device.product_model,
+      nickname: device.nickname,
     };
 
     this.homeKitAccessory.getService(Service.AccessoryInformation)
@@ -84,6 +87,37 @@ module.exports = class WyzeAccessory {
       this.updating = false;
     }
   }
+
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+
+  async setBufferedProperty(property, value) {
+    //save the broperty in out buffer
+    this.bufferedProperties[property] = value;
+    const localCount = ++this.bufferCount;
+     //and give some time for more properties to be set
+    await this.sleep(100);
+    //if sentinal hasn't changed no more properties came in so we'll send what we have
+    if(localCount == this.bufferCount) {
+      try {
+        this.updating = true;
+        const propertyList = this.bufferedProperties;
+	this.bufferedProperties = [];
+	this.bufferCount = 0;
+        let response = await this.plugin.client.setPropertyList(this.mac, this.product_model, propertyList);
+
+      this.lastTimestamp = response.ts;
+    } finally {
+      this.updating = false;
+    }
+    } else {
+      this.plugin.log.info(`Batching ${this.homeKitAccessory.context.nickname} ${property} = ${value}`);
+    }
+  }
+ 
+
   async runActionList(property, value) {
     try {
       this.updating = true;
